@@ -23,33 +23,34 @@ public class QuasiAgent {
     public static void main(String[] args) {
         log.info("Starting QuasiAgent");
         log.info("Please enter the function you want to create");
+        conversationHistory.add(new Message("system", systemPrompt));
+
         Scanner scanner = new Scanner(System.in);
         String userInput = scanner.nextLine();
 
         String functionCode = generateFunction(userInput);
         log.info("1. Function Code: {}", functionCode);
+        conversationHistory.add(new Message("assistant", functionCode));
 
         String functionWithDocumentation = addDocumentation(functionCode);
         log.info("2. Function With Documentation: {}", functionWithDocumentation);
+        conversationHistory.add(new Message("assistant", functionWithDocumentation));
 
-        String completeCode = addTestCases(functionWithDocumentation);
+        String completeCode = addTestCases();
         log.info("3. Complete Code: {}", completeCode);
     }
 
     private static String generateFunction(String userPrompt) {
         LLM llm = new LLM();
-        List<Message> messages = new ArrayList<>();
-        messages.add(new Message("system", systemPrompt));
-        messages.add(new Message("user", userPrompt));
-        return llm.generateResponse(messages);
+        String userInput = userPrompt + """
+                Just provide the code. Don't provide any explanations. 
+                """;
+        conversationHistory.add(new Message("user", userInput));
+        return llm.generateResponse(conversationHistory);
     }
 
     private static String addDocumentation(String generatedFunction) {
         LLM llm = new LLM();
-        List<Message> messages = new ArrayList<>();
-        messages.add(new Message("system", systemPrompt));
-        messages.add(new Message("assistant", generatedFunction));
-
         String userMessage = """
                 Add comprehensive java docs. to the function. Include:
                 1. Function Description
@@ -60,17 +61,13 @@ public class QuasiAgent {
                 
                 Here's the function to document: \n
                 """ + generatedFunction;
-
-        messages.add(new Message("user", userMessage));
-        return llm.generateResponse(messages);
+        conversationHistory.add(new Message("user", userMessage));
+        return llm.generateResponse(conversationHistory);
     }
 
-    private static String addTestCases(String functionWithJavaDocs) {
+    private static String addTestCases() {
         LLM llm = new LLM();
-        List<Message> messages = new ArrayList<>();
-        messages.add(new Message("system", systemPrompt));
-        messages.add(new Message("assistant", functionWithJavaDocs));
-        messages.add(new Message("user", "Generate all the test cases and Include a function to all generated test cases."));
-        return llm.generateResponse(messages);
+        conversationHistory.add(new Message("user", "Generate all the test cases and Include a function to all generated test cases."));
+        return llm.generateResponse(conversationHistory);
     }
 }
