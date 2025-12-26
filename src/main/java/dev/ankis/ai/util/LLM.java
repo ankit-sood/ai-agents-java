@@ -1,13 +1,28 @@
 package dev.ankis.ai.util;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
+import com.openai.core.JsonValue;
 import com.openai.models.ChatModel;
+import com.openai.models.FunctionDefinition;
 import com.openai.models.chat.completions.*;
+import dev.ankis.ai.models.Message;
+import dev.ankis.ai.models.Prompt;
+import dev.ankis.ai.models.Tool;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.util.CollectionUtils;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+@Slf4j
 public class LLM {
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    private String model = ChatModel.GPT_4_1_MINI.asString();
 
     /**
      * Generates an LLM response based on the provided messages.
@@ -88,7 +103,116 @@ public class LLM {
         ChatCompletion completion = client.chat().completions().create(paramsBuilder.build());
 
         // Return content from first choice
-        return completion.choices().getFirst().message().content().get();
+        return completion.choices().getFirst().message().content().orElse("");
+    }
+
+    public String generateResponse(Prompt prompt) {
+        try {
+            // Initialize OpenAI client using environment variables
+            OpenAIClient client = OpenAIOkHttpClient.fromEnv();
+
+            List<Message> messages = prompt.getMessages();
+
+            ChatCompletionCreateParams.Builder paramsBuilder = ChatCompletionCreateParams.builder()
+                    .model(this.model)
+                    .maxCompletionTokens(2048*4);
+
+            // Add messages to the request
+            for (Message message : messages) {
+                if (message.getRole().equals("system")) {
+                    ChatCompletionSystemMessageParam systemMsg = ChatCompletionSystemMessageParam.builder()
+                            .content(message.getContent())
+                            .build();
+                    paramsBuilder.addMessage(systemMsg);
+                } else if (message.getRole().equals("user")) {
+                    ChatCompletionUserMessageParam userMsg = ChatCompletionUserMessageParam.builder()
+                            .content(message.getContent())
+                            .build();
+                    paramsBuilder.addMessage(userMsg);
+                } else {
+                    ChatCompletionAssistantMessageParam assistantMsg = ChatCompletionAssistantMessageParam.builder()
+                            .content(message.getContent())
+                            .build();
+                    paramsBuilder.addMessage(assistantMsg);
+                }
+            }
+
+            String result = null;
+            List<Tool> tools = prompt.getTools();
+            if(CollectionUtils.isEmpty(tools)) {
+                ChatCompletion chatCompletion = client.chat().completions().create(paramsBuilder.build());
+                result = chatCompletion.choices().getFirst().message().content().orElse("");
+            } else {
+                // Add the tools
+                List<ChatCompletionTool> chatCompletionTools = convertToolsToOpenAIFormat(tools);
+                paramsBuilder.tools(chatCompletionTools);
+
+                // Get completion with tools
+                ChatCompletion completion = client.chat().completions().create(paramsBuilder.build());
+
+                // Check if model used a tool
+                if (completion.choices().getFirst().message().toolCalls().isPresent()) {
+                    // Extract the tool call
+                    ChatCompletionMessageToolCall toolCall = completion.choices().getFirst().message().toolCalls().get().getFirst();
+
+                    // Format the response as a JSON string
+                    Map<String, Object> toolResponse = new HashMap<>();
+                    if(toolCall.function().isPresent()) {
+                        toolResponse.put("tool", toolCall.function().get().function().name());
+                        toolResponse.put("args", objectMapper.readValue(toolCall.function().get().function().arguments(), Map.class));
+                    } else {
+                        log.error("Tool Call Function Not Found");
+                    }
+                    result = objectMapper.writeValueAsString(toolResponse);
+                } else {
+                    result = completion.choices().getFirst().message().content().orElse("");
+                }
+            }
+            return result;
+        } catch (Exception exp) {
+            log.error("Error generating response: " + exp.getMessage());
+            log.debug("{}",exp);
+
+            log.error("Prompt details:");
+            for (Message message : prompt.getMessages()) {
+                log.error("Message: " + message.getRole() + " - " + message.getContent());
+            }
+
+            if (!prompt.getTools().isEmpty()) {
+                log.error("Tools:");
+                for (Tool tool : prompt.getTools()) {
+                    log.error("Tool: " + tool.getToolName() + " - " + tool.getDescription());
+                }
+            }
+
+            log.error("Model: " + this.model);
+
+            throw new RuntimeException("Failed to generate response", exp);
+        }
+    }
+
+    private List<ChatCompletionTool> convertToolsToOpenAIFormat(List<Tool> tools) {
+        List<ChatCompletionTool> chatCompletionTools = new ArrayList<>();
+
+        for (Tool tool : tools) {
+            FunctionDefinition functionDefinition =
+                    FunctionDefinition.builder()
+                            .name(tool.getToolName())
+                            .description(tool.getDescription())
+                            .parameters(JsonValue.from(tool.getParameters()))
+                            .build();
+
+            ChatCompletionFunctionTool functionTool =
+                    ChatCompletionFunctionTool.builder()
+                            .function(functionDefinition)
+                            .build();
+
+            chatCompletionTools.add(
+                    ChatCompletionTool.ofFunction(functionTool)
+            );
+        }
+
+        return chatCompletionTools;
     }
 
 }
