@@ -300,10 +300,5 @@ When adding new prompt templates:
 3. Document expected inputs and outputs
 4. Test with diverse scenarios
 
-## License
-
-Part of the AI Agents Java framework - available for educational and demonstration purposes.
-
----
-
-**Related Documentation**: See main AI Agents Java README for framework overview and architecture details.
+## Reference
+- [Prompt Learning Talk](https://www.youtube.com/watch?v=pP_dSNz_EdQ)
