@@ -2,10 +2,10 @@ package dev.ankis.ai.intermediate.agents;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import dev.ankis.ai.complex.agents.models.Action;
-import dev.ankis.ai.complex.agents.models.ActionResult;
+import dev.ankis.ai.models.Action;
+import dev.ankis.ai.models.ActionResult;
 import dev.ankis.ai.util.LLM;
-import dev.ankis.ai.util.Message;
+import dev.ankis.ai.models.Message;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
