@@ -2,7 +2,7 @@ package dev.ankis.ai.simple.agents;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.ankis.ai.util.LLM;
-import dev.ankis.ai.util.Message;
+import dev.ankis.ai.models.Message;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;

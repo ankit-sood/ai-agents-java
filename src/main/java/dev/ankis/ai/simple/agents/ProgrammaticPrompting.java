@@ -1,7 +1,7 @@
 package dev.ankis.ai.simple.agents;
 
 import dev.ankis.ai.util.LLM;
-import dev.ankis.ai.util.Message;
+import dev.ankis.ai.models.Message;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -1,4 +1,4 @@
-package dev.ankis.ai.complex.agents.models;
+package dev.ankis.ai.models;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
